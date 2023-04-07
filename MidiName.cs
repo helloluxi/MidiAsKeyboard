@@ -90,7 +90,27 @@
 
 
     private static readonly string[] NoteNames = new string[] {
-            "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    };
     public static string GetMidiName(int noteNumber) =>
         $"{NoteNames[noteNumber % 12]}{noteNumber / 12 - 1}";
+    private static readonly Dictionary<string, int> NoteNameToNumber = new Dictionary<string, int> {
+        {"C" , 0},
+        {"C#", 1}, {"#C", 1}, {"Db", 1}, {"bD", 1},
+        {"D" , 2},
+        {"D#", 3}, {"#D", 3}, {"Eb", 3}, {"bE", 3},
+        {"E" , 4},
+        {"F" , 5},
+        {"F#", 6}, {"#F", 6}, {"Gb", 6}, {"bG", 6},
+        {"G" , 7},
+        {"G#", 8}, {"#G", 8}, {"Ab", 8}, {"bA", 8},
+        {"A" , 9},
+        {"A#", 10}, {"#A", 10}, {"Bb", 10}, {"bB", 10},
+        {"B" , 11}
+    };
+    public static int Parse(string name){
+        var noteName = name.Substring(0, name.Length - 1);
+        var octave = int.Parse(name.Substring(name.Length - 1));
+        return NoteNameToNumber[noteName] + (octave + 1) * 12;
+    }
 }

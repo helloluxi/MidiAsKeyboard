@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using NAudio.Midi;
 
@@ -9,22 +11,12 @@ class Program
 {    
     [DllImport("user32.dll", EntryPoint = "keybd_event", SetLastError = true)]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
+
     
-    static void Press(Keys key) => keybd_event((byte)key, 0, 0, 0);
-    static void Release(Keys key) => keybd_event((byte)key, 0, 2, 0);
-    static void Click(Keys key)
-    {
-        Press(key); Release(key);
-        System.Console.WriteLine($"Click {key}");
-    }
-    static void Sequence(params Keys[] control)
-    {
-        Array.ForEach(control, Press);
-        for (int i = control.Length - 1; i >= 0 ; i--)
-        {
-            Release(control[i]);
-        }
-        System.Console.WriteLine("Click " + string.Join('+', control));
+    static void Press(KeyCode key) => keybd_event((byte)key, 0, 0, 0);
+    static void Release(KeyCode key) => keybd_event((byte)key, 0, 2, 0);
+    public class MidiAction{
+        public Action midiPress, midiRelease;
     }
 
     static void Main(string[] args)
@@ -41,39 +33,56 @@ class Program
         Console.ResetColor();
         Console.WriteLine();
 
-        var mapping = new Keys[128];
-        
-        mapping[NoteName.Gs3] = Keys.Esc;
-        mapping[NoteName.As3] = Keys.Tab;
-        mapping[NoteName.C4]  = Keys.LCtrl;
-        mapping[NoteName.Cs4]  = Keys.X;
-        mapping[NoteName.D4]  = Keys.Space;
-        mapping[NoteName.Ds4]  = Keys.R;
-        mapping[NoteName.E4]  = Keys.C;
-        mapping[NoteName.Fs4] = Keys.E;
-
-        mapping[NoteName.C5]  = Keys.Q;
-        mapping[NoteName.Cs5] = Keys.Z;
-        mapping[NoteName.D5]  = Keys.S;
-        mapping[NoteName.E5]  = Keys.D;
-
-        mapping[NoteName.C6]  = Keys.Left;
-        mapping[NoteName.Cs6] = Keys.Up;
-        mapping[NoteName.D6]  = Keys.Down;
-        mapping[NoteName.Ds6] = Keys.Shift;
-        mapping[NoteName.E6]  = Keys.Right;
+        JsonDocument document = JsonDocument.Parse(System.IO.File.ReadAllText("config.json"));
+        bool playback = document.RootElement.GetProperty("playback").GetBoolean();
+        int patch = document.RootElement.GetProperty("patch").GetInt32();
+        var mapping = new MidiAction[128];
+        foreach(JsonProperty element in document.RootElement.GetProperty("mappings").EnumerateObject()){
+            int note = NoteName.Parse(element.Name);
+            KeyCode[][] keys = element.Value.GetString().Split(' ').Select(
+                s => s.Split('+').Select(ss => Enum.Parse<KeyCode>(ss)).ToArray()
+            ).ToArray();
+            if(keys.Length == 1){
+                mapping[note] = new MidiAction{
+                    midiPress = () => Array.ForEach(keys[0], Press),
+                    midiRelease = () => {
+                        foreach(KeyCode key in keys[0].Reverse())
+                            Release(key);
+                    }
+                };
+            }
+            else
+            {
+                mapping[note] = new MidiAction{
+                    midiPress = () => {
+                        foreach(KeyCode[] keys in keys){
+                            foreach(KeyCode key in keys)
+                                Press(key);
+                            foreach(KeyCode key in keys.Reverse())
+                                Release(key);
+                        }
+                    },
+                    midiRelease = () => {}
+                };
+            }
+        }
 
         using var midiIn = new MidiIn(0);
         using var midiOut = new MidiOut(0);
+
+        // Set instrument <https://www.midi.org/specifications-old/item/gm-level-1-sound-set>
+        midiOut.Send(MidiMessage.ChangePatch(patch, 1).RawData);
+        
         midiIn.MessageReceived += (sender, e) => {
             if(e.MidiEvent is NoteEvent n){
                 // Console.WriteLine(n);
-                midiOut.Send(n.GetAsShortMessage());
-                if(mapping[n.NoteNumber] != Keys.None){
-                    if(n.Velocity > 0)
-                        Press(mapping[n.NoteNumber]);
-                    else
-                        Release(mapping[n.NoteNumber]);
+                if(playback)
+                    midiOut.Send(n.GetAsShortMessage());
+                if(mapping[n.NoteNumber] != null){
+                    if(n.CommandCode == MidiCommandCode.NoteOn)
+                        mapping[n.NoteNumber].midiPress();
+                    else if(n.CommandCode == MidiCommandCode.NoteOff)
+                        mapping[n.NoteNumber].midiRelease();
                 }
             }
         };
@@ -84,6 +93,6 @@ class Program
         };
         midiIn.Start();
 
-        Console.ReadKey();
+        while(true) Console.ReadKey();
     }
 }

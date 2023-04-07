@@ -1,0 +1,24 @@
+{
+    "playback": true,
+    "patch": 41,
+    "mappings": {
+        "G#3": "Esc",
+        "A#3": "Tab",
+        "C4" : "LCtrl",
+        "C#4": "X",
+        "D4" : "Space",
+        "D#4": "R",
+        "E4" : "C",
+        "F#4": "E",
+        "C5" : "Q",
+        "C#5": "Z",
+        "D5" : "S",
+        "E5" : "D",
+        "B5" : "LShift",
+        "D#6": "Shift",
+        "C6" : "Left",
+        "C#6": "Up",
+        "D6" : "Down",
+        "E6" : "Right"
+    }
+}

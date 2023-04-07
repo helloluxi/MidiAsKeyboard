@@ -1,4 +1,4 @@
-﻿public enum Keys : byte
+﻿public enum KeyCode : byte
 {
     None,
     LButton = 0x01,
