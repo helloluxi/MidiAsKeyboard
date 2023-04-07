@@ -93,6 +93,13 @@ class Program
         };
         midiIn.Start();
 
+        // Relese all keys on exit
+        Console.CancelKeyPress += (sender, e) => {
+            foreach(MidiAction action in mapping)
+                if(action != null)
+                    action.midiRelease();
+        };
+
         while(true) Console.ReadKey();
     }
 }
